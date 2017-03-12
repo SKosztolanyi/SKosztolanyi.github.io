@@ -1,0 +1,177 @@
+---
+title: "Exercise Deivces - Prediction of Quality"
+author: "Stefan Kosztolanyi"
+date: "March 11, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/stefan/Google Drive OldZZZ/Data Science/Coursera + Edx/JHU- Data Science Specialization/Practical_Machine_Learning")
+```
+
+## Overview
+
+In this analysis, we look at Weight Lifting Exercise Dataset that was carefully corrected for 6 participants in experimental conditions. We won't be concerned about the lenght of exercise or count of exercises. Rather, we are concerned about whether participant exercised correctly (class A) or he did some common mistake during the exercise (clas B - E).
+
+
+## Exploratory Analysis
+```{r packages, echo=FALSE, message=FALSE, warning=FALSE}
+library(caret)
+library(dplyr)
+train <- read.csv("pml-training.csv")
+test <- read.csv("pml-testing.csv")
+```
+
+```{r structure od fada}
+missing_vals_cols <- colnames(train)[colSums(is.na(train)) > 0]
+missing_vals_cols
+```
+
+As we see, there are 67 columns that contain NA values and all of the columns contain 19216 missing values. That is quite a lot given we have 19622 observations. We will therefore ignore these columns and build a model only from the columns without missing values.
+
+```{r noNA}
+train_without_NA <- train[,! names(train) %in% missing_vals_cols]
+```
+
+Let's look at the outcome variable and see how many observations are there for every class in percentage values.
+
+```{r classe table}
+table(train_without_NA$classe)/sum(table(train_without_NA$classe))
+```
+
+The class A which means correct training is the most observed, while incorrect values have all very similar observation count. This is important fact for our model building.
+
+## Building a Predictive Model with Cross Validation
+
+Before we build a model, we want to split the tran_without_NA dataset into training and validation dataset for better estimates of model accuracy. We will use caret package for splitting on the outcome.
+
+```{r splitting}
+set.seed(315)
+train_index <- createDataPartition(train_without_NA$classe, p = 0.7, list = FALSE)
+training <- train_without_NA[train_index,]
+validation <- train_without_NA[-train_index,]
+```
+
+When deciding what modeling algorithm to use, we usually decide between simplicity and straightforward interpretability compared to compleity and higher accuracy.
+
+The first kind of simple and interpretable models would be Logistic Regression model (glm, family = "multinomial") or decision tree model (rpart).
+
+The second kind of complex and not easily interpretable models would be for example Random Forests (method = "rf") or Gradient Boosting (method = "gbm").
+
+It's usually better to start with simpler model and decide if to build more complex model or use the simple one based on the prediction results.
+
+**1. Logistic Regression Model **
+
+```{r multinomReg}
+# LogReg_Mod <- train(classe ~ ., data = training, method = "glm", family = "binomial")
+```
+
+Aha! We won't be able to use glm logistic regression, because it only accepts binomial family (2 different outcomes), while we have 5 different outcomes. Let's look at decision tree.
+
+**2. Desicion Tree Model **
+```{r rpart}
+library(rpart)
+DecTree_Mod1 <- train(classe ~ total_accel_belt 
+                     + total_accel_arm 
+                     + total_accel_dumbbell
+                     + total_accel_forearm
+                     ,data = training, method = "rpart")
+```
+
+```{r}
+library(rpart.plot)
+DecTree_Predict <- predict(DecTree_Mod1, newdata = training)
+confusionMatrix(DecTree_Predict, training$classe)
+```
+
+```{r decision tree 2}
+DecTree_Mod2 <- train(classe ~ total_accel_belt + roll_belt + pitch_belt + yaw_belt
+                     + total_accel_arm + roll_arm + pitch_arm + yaw_arm
+                     + total_accel_dumbbell + roll_dumbbell + pitch_dumbbell + yaw_dumbbell
+                     + total_accel_forearm + roll_forearm + pitch_forearm + yaw_forearm
+                     ,data = training, method = "rpart")
+
+DecTree_Predict2 <- predict(DecTree_Mod2, newdata = training)
+confusionMatrix(DecTree_Predict2, training$classe)
+```
+I think big problem with modeling is choosing the correct variables. What should be included and what shouldn't?
+Let's include only those variables that don't contain NA and missing values(most factor variables) and use only those - complete numeric variables.
+
+```{r training_full_numeric}
+training_numeric <- training[,sapply(training, is.numeric)]
+training_numeric <- cbind(data.frame(classe = training$classe), training_numeric)
+```
+
+```{r decision tree 3}
+DecTree_Mod3 <- train(classe ~ . -X -raw_timestamp_part_1 -raw_timestamp_part_2 -num_window
+                     ,data = training_numeric
+                     , method = "rpart"
+                     ,trControl = trainControl(method = "cv", number = 5))
+
+DecTree_Predict3 <- predict(DecTree_Mod3, newdata = training_numeric)
+confusionMatrix(DecTree_Predict3, training$classe)
+```
+```{r}
+DecTree_val3 <- predict(DecTree_Mod3, newdata = validation)
+confusionMatrix(DecTree_val3, validation$classe)
+```
+
+
+**3. Random Forest Model **
+```{r random forest 1}
+library(randomForest)
+RF_Mod1 <- randomForest(x = training_numeric[,!colnames(training_numeric) %in% c("X", "raw_timestamp_part_1", "raw_timestamp_part_2", "num_window", "classe")]
+                  , y = training_numeric$classe 
+                  ,  ntree = 50)
+
+RF_Predict1 <- predict(RF_Mod1, newdata = training_numeric)
+confusionMatrix(RF_Predict1, training$classe)
+```
+
+The prediction on training dataset is 100% accurate!
+I'm afraid, there is huge overfitting going on, so let's apply the model to validation dataset that we set apart in the beginning.
+
+```{r RF1 on validation}
+RF_Validation1 <- predict(RF_Mod1, newdata = validation)
+confusionMatrix(RF_Validation1, validation$classe)
+```
+
+To my surprise, class in validation dataset is almost perfectly predicted! We have 99,5% accurate model.
+
+Finally, let's look at importance of different variables (higher the value, the more important feature)
+
+```{r variable importance, fig.width=6, fig.height=8}
+varImpPlot(RF_Mod1, type = 2)
+```
+
+## Model Evaluation and Model Selection
+
+We used only numeric features without missing values as predictors in our final models.
+
+At first, we wanted to build an easily interpretable model with Logistic Regression, but it wasn't possible, because we have 5 classes to predict and not only binomial 2.
+
+Then we built a decision tree model with cross validation, but it had only accuracy of 49% on training set and 48% on validation set.
+
+Lastly we tried building a non-linear complex model that used bagging - RandomForest model. This model exceeded all expectations, because it accomplished accuracy of 100%  on training and 99,5% accuracy on validation dataset.
+
+## OOB prediction estimate
+
+Given that we have 100% accuracy on Training dataset and 99,5% accuracy on Validation dataset, we can estimate very high accuracy also on OOB samples as we can see fom Validation Prediction Confidence interval: 95% CI : (0.9927, 0.9966).
+Our accuracy should be therefore higher than 99%.
+
+## Applying the Best Model on Test Dataset
+
+There are a few missing values in test dataset for fields that are filled in training dataset.
+We could either remove all such fields from the model and build a model without them or just fill 0 value and hope that they are not so important.
+```{r RF on test}
+test_fill <- test
+test_fill[is.na(test_fill)] <- 0
+RF_Test1 <- predict(RF_Mod1, newdata = test_fill)
+RF_Test1
+```
+According to the quiz, we have also 100% accuracy here.
+
+## Analysis Summary
+
+In this document we analyzed quality of exercise as stored by special devices. We asked if we are able to predict quality of exercise and categorize mistakes based on measurement of the devices. We built a complex but hardly interpretable model (random forest) that was able to predict category correctly with 99,5% accuracy. It is therefore useful to use such devices during exercise and check the quality based on the collected measurements.
