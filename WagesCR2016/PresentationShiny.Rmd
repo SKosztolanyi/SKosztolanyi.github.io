@@ -1,0 +1,47 @@
+---
+title: "ShinyApp - Wages in Czech Republic for Year 2016"
+author: "Stefan Kosztolanyi"
+date: "31st of March, 2017"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Data of the app
+
+This presentation is about wages in Czech Republic, based on external open data provided by third party: 
+
+https://www.ispv.cz/
+
+The wages considered are collected for year 2016. The data is collected by governemnt institutions, while all employers are required to provide this kind of data to government institutions. Therefore, the data quality is high and the values are reliable. 
+
+## Visual part of the app
+
+The shiny application contains 4 tabs with plotly boxplots, each tab based on different dataset
+
+- The first set of boxplots compares wages between sexes.
+- The second set of boxplots compares wages between highest education attained.
+- The third set of boxplots compares wages between different age categories.
+- The last boxplot simply shows wage distribution for a profession of your choosing from a list.
+
+## How to use the app
+
+This web application is very easy to use.
+
+The first three tabs show only static boxplots that compare different categories.
+
+However! you can hover with your mouse over the boxplots to see concrete values for specific percentiles together with mean value.
+
+The last tab contains plot that is interactive in the sense that you can choose specific profession from a list and you will see wage ranges for chosen profession.
+
+## What is the app good for
+
+What or who is this app good for?
+
+Essentially for anyone that is interested in job market, be it students, graduates or employees who are looking for a new job.
+
+It's important to note, that this Shiny App is very minimal and can be easily enriched with more comparison table or a salary calculator, that will evaluate user's input of age, experience, sex, education and provide an expected salary to the user.
+
+
