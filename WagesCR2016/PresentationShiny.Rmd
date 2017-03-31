@@ -9,17 +9,22 @@ output: ioslides_presentation
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-## Data of the app
+## Simple visual style of the App
 
-This presentation is about wages in Czech Republic, based on external open data provided by third party: 
+The simplest boxplot that I use in application looks like this
+
+```{r, message=FALSE, warning=FALSE, echo = TRUE}
+library(plotly)
+plot_ly(y = ~rnorm(50), type = "box", name = "Box_A") %>%
+  add_trace(y = ~rnorm(50, 1), name = "Box_B")
+```
+
+
+## What is in the app
+
+The shiny application contains 4 tabs with plotly boxplots, each tab based on different dataset. All datasets in presentation are about wages in Czech Republic, based on external open data provided by third party: 
 
 https://www.ispv.cz/
-
-The wages considered are collected for year 2016. The data is collected by governemnt institutions, while all employers are required to provide this kind of data to government institutions. Therefore, the data quality is high and the values are reliable. 
-
-## Visual part of the app
-
-The shiny application contains 4 tabs with plotly boxplots, each tab based on different dataset
 
 - The first set of boxplots compares wages between sexes.
 - The second set of boxplots compares wages between highest education attained.
